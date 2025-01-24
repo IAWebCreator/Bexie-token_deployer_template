@@ -1,1 +1,8 @@
-/monoprompting_test 24 enero 2025
+node_modules
+.env
+.cache
+artifacts
+cache
+
+
+templates/previous_version/

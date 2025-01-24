@@ -1,0 +1,17 @@
+{
+    "name": "bex-integration-minimal",
+    "version": "1.0.0",
+    "description": "Minimal Hardhat project for BexLiquidity + TokenFactory + Frontend Integration",
+    "scripts": {
+      "compile": "hardhat compile",
+      "deploy": "hardhat run scripts/deploy.js --network berachain",
+      "test": "hardhat test"
+    },
+    "devDependencies": {
+      "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+      "@openzeppelin/contracts": "^5.1.0",
+      "dotenv": "^16.4.5",
+      "ethers": "^6.11.1",
+      "hardhat": "^2.22.15"
+    }
+  }  

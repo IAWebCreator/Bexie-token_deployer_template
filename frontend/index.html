@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Token Deployer</title>
+  <!-- Ethers.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.6.0/dist/ethers.min.js"></script>
+</head>
+<body style="font-family: sans-serif; margin: 20px;">
+  <h1>Token Deployer</h1>
+
+  <button id="connectButton">Connect Metamask</button>
+
+  <div style="margin-top: 20px;">
+    <label>Token Factory Address:</label><br>
+    <input type="text" id="factoryAddress" size="60" placeholder="Paste the factory contract address here" />
+  </div>
+
+  <hr>
+
+  <h2>Create a New Token</h2>
+  <p>Enter token details below:</p>
+  
+  <div>
+    <label>Token Name</label><br>
+    <input type="text" id="tokenName" placeholder="e.g. MyToken" />
+  </div>
+  <div>
+    <label>Token Symbol</label><br>
+    <input type="text" id="tokenSymbol" placeholder="e.g. MYT" maxlength="5"/>
+  </div>
+  <div>
+    <label>Initial Supply</label><br>
+    <input type="number" id="initialSupply" placeholder="e.g. 1000000" />
+  </div>
+  <div>
+    <label>Price Feed Address (Chainlink style aggregator):</label><br>
+    <input type="text" id="priceFeed" placeholder="e.g. 0x..." size="60" />
+  </div>
+  
+  <p>Note: The factory requires a creationFee of <code>0.002 BERA</code>.</p>
+  <button id="createTokenBtn">Create Token</button>
+
+  <script>
+    let provider;
+    let signer;
+
+    document.getElementById("connectButton").onclick = async function() {
+      if (window.ethereum) {
+        try {
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          provider = new ethers.BrowserProvider(window.ethereum);
+          signer = await provider.getSigner();
+          alert("Metamask connected: " + await signer.getAddress());
+        } catch (err) {
+          alert("User denied account access");
+        }
+      } else {
+        alert("No Metamask (or other) provider found");
+      }
+    };
+
+    document.getElementById("createTokenBtn").onclick = async function() {
+      if (!signer) {
+        alert("Please connect Metamask first!");
+        return;
+      }
+      const factoryAddr = document.getElementById("factoryAddress").value.trim();
+      if (!factoryAddr) {
+        alert("Please enter the TokenFactory contract address");
+        return;
+      }
+
+      // Collect form data
+      const name = document.getElementById("tokenName").value.trim();
+      const symbol = document.getElementById("tokenSymbol").value.trim();
+      const initialSupply = document.getElementById("initialSupply").value.trim();
+      const priceFeed = document.getElementById("priceFeed").value.trim();
+
+      if (!name || !symbol || !initialSupply || !priceFeed) {
+        alert("Fill all fields (name, symbol, supply, price feed)!");
+        return;
+      }
+
+      try {
+        // Minimal ABI for the factory's createToken function
+        const factoryAbi = [
+          "function createToken(string memory name, string memory symbol, uint256 initialSupply, address priceFeedAddress) external payable"
+        ];
+        const factoryContract = new ethers.Contract(factoryAddr, factoryAbi, signer);
+
+        // The creationFee = 0.002 BERA => 0.002 * 1e18 = 2000000000000000 wei
+        const creationFee = ethers.parseEther("0.002");
+
+        // Call createToken
+        const tx = await factoryContract.createToken(
+          name,
+          symbol,
+          initialSupply,   // for example, 1000000
+          priceFeed,
+          { value: creationFee }
+        );
+        alert("Transaction sent! Hash: " + tx.hash);
+
+        const receipt = await tx.wait();
+        alert("Token created! Confirmed in block " + receipt.blockNumber);
+
+        // Parse event logs if desired
+        // Or just check your block explorer for the event
+      } catch(err) {
+        console.error(err);
+        alert("Error: " + (err.message || err));
+      }
+    };
+  </script>
+</body>
+</html>
