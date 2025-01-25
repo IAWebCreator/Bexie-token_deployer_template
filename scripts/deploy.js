@@ -6,6 +6,9 @@ require("dotenv").config();
 async function main() {
   const [deployer] = await hre.ethers.getSigners();
 
+  console.log('='.repeat(50));
+  console.log("Starting deployment process...");
+  console.log('='.repeat(50));
   console.log("Deploying contracts with account:", deployer.address);
 
   // Check environment variables
@@ -20,15 +23,15 @@ async function main() {
   }
 
   // 1) Deploy BexLiquidityManager
-  console.log("Deploying BexLiquidityManager...");
+  console.log("\nDeploying BexLiquidityManager...");
   const BexLiquidityManager = await hre.ethers.getContractFactory("BexLiquidityManager");
   const bexLiquidityManager = await BexLiquidityManager.deploy(process.env.BEX_DEX_ADDRESS);
   await bexLiquidityManager.waitForDeployment();
   const bexLiquidityManagerAddress = await bexLiquidityManager.getAddress();
-  console.log("BexLiquidityManager deployed at:", bexLiquidityManagerAddress);
+  console.log("✓ BexLiquidityManager deployed at:", bexLiquidityManagerAddress);
 
   // 2) Deploy TokenFactory
-  console.log("Deploying TokenFactory...");
+  console.log("\nDeploying TokenFactory...");
   const TokenFactory = await hre.ethers.getContractFactory("TokenFactory");
   const tokenFactory = await TokenFactory.deploy(
     process.env.FEE_COLLECTOR_ADDRESS,
@@ -37,9 +40,9 @@ async function main() {
   );
   await tokenFactory.waitForDeployment();
   const tokenFactoryAddress = await tokenFactory.getAddress();
-  console.log("TokenFactory deployed at:", tokenFactoryAddress);
+  console.log("✓ TokenFactory deployed at:", tokenFactoryAddress);
 
-  // Output addresses to console (and optionally save to JSON if desired)
+  // Output addresses to console
   const deploymentInfo = {
     tokenFactoryAddress,
     bexLiquidityManagerAddress,
@@ -51,14 +54,20 @@ async function main() {
     timestamp: new Date().toISOString(),
   };
   
-  console.log("Deployment Info:", deploymentInfo);
-  // You could write to a file:
-  // require("fs").writeFileSync("factory-deployment-info.json", JSON.stringify(deploymentInfo, null, 2));
+  console.log('\n='.repeat(50));
+  console.log("DEPLOYMENT SUMMARY");
+  console.log('='.repeat(50));
+  console.log(JSON.stringify(deploymentInfo, null, 2));
+  console.log('='.repeat(50));
 }
 
 main()
-  .then(() => process.exit(0))
+  .then(() => {
+    console.log("\n✓ Deployment completed successfully!");
+    process.exit(0);
+  })
   .catch((error) => {
-    console.error("Deployment failed:", error);
+    console.error("\n✗ Deployment failed:");
+    console.error(error);
     process.exit(1);
   });

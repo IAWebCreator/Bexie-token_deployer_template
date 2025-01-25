@@ -6,6 +6,7 @@
   <!-- Load ethers from unpkg CDN - more reliable than cdnjs for ethers -->
   <script src="https://unpkg.com/ethers@6.11.1/dist/ethers.umd.min.js"
           type="application/javascript"></script>
+  <script src="config.js"></script>
 </head>
 <body style="font-family: sans-serif; margin: 20px;">
   <h1>Token Deployer</h1>
@@ -16,11 +17,6 @@
   </div>
 
   <button id="connectButton">Connect Metamask</button>
-
-  <div style="margin-top: 20px;">
-    <label>Token Factory Address:</label><br>
-    <input type="text" id="factoryAddress" size="60" placeholder="Paste the factory contract address here" />
-  </div>
 
   <hr>
 
@@ -35,14 +31,6 @@
     <label>Token Symbol</label><br>
     <input type="text" id="tokenSymbol" placeholder="e.g. MYT" maxlength="5"/>
   </div>
-  <div>
-    <label>Initial Supply</label><br>
-    <input type="number" id="initialSupply" placeholder="e.g. 1000000" />
-  </div>
-  <div>
-    <label>Price Feed Address (Chainlink style aggregator):</label><br>
-    <input type="text" id="priceFeed" placeholder="e.g. 0x..." size="60" />
-  </div>
   
   <p>Note: The factory requires a creationFee of <code>0.002 BERA</code>.</p>
   <button id="createTokenBtn">Create Token</button>
@@ -53,18 +41,18 @@
       let provider;
       let signer;
       
-      // Network configuration
-      const SUPPORTED_CHAIN_ID = '0x138D4'; // Berachain bArtio (hex for 80084)
+      // Network configuration from config
+      const SUPPORTED_CHAIN_ID = CONFIG.CHAIN_ID;
       const NETWORK_CONFIG = {
-          chainId: SUPPORTED_CHAIN_ID,
-          chainName: 'Berachain bArtio',
+          chainId: CONFIG.CHAIN_ID,
+          chainName: CONFIG.NETWORK_NAME,
           nativeCurrency: {
               name: 'BERA',
               symbol: 'BERA',
               decimals: 18
           },
-          rpcUrls: ['https://bartio.rpc.berachain.com/'],
-          blockExplorerUrls: ['https://bartio.beratrail.io/']
+          rpcUrls: [CONFIG.RPC_URL],
+          blockExplorerUrls: [CONFIG.EXPLORER_URL]
       };
 
       // Initialize only after both DOM and ethers are ready
@@ -208,48 +196,56 @@
 
       document.getElementById("createTokenBtn").onclick = async function() {
         if (!signer) {
+          console.warn('⚠️ Wallet not connected - please connect Metamask first');
           alert("Please connect Metamask first!");
-          return;
-        }
-        const factoryAddr = document.getElementById("factoryAddress").value.trim();
-        if (!factoryAddr) {
-          alert("Please enter the TokenFactory contract address");
           return;
         }
 
         // Collect form data
         const name = document.getElementById("tokenName").value.trim();
         const symbol = document.getElementById("tokenSymbol").value.trim();
-        const initialSupply = document.getElementById("initialSupply").value.trim();
-        const priceFeed = document.getElementById("priceFeed").value.trim();
 
-        if (!name || !symbol || !initialSupply || !priceFeed) {
-          alert("Fill all fields (name, symbol, supply, price feed)!");
+        if (!name || !symbol) {
+          console.warn('⚠️ Missing required fields');
+          alert("Fill all fields (name and symbol)!");
           return;
         }
 
         try {
+          console.info('🚀 STARTING TOKEN DEPLOYMENT');
+          console.info('='.repeat(50));
+          console.info(`Token Name: ${name}`);
+          console.info(`Token Symbol: ${symbol}`);
+          console.info(`Factory Address: ${CONFIG.TOKEN_FACTORY_ADDRESS}`);
+          console.info(`Initial Supply: ${CONFIG.INITIAL_SUPPLY}`);
+          console.info('='.repeat(50));
+          
           // Full ABI for the factory's createToken function and event
           const factoryAbi = [
             "function createToken(string memory name, string memory symbol, uint256 initialSupply, address priceFeedAddress) external payable",
             "event TokenCreated(address indexed creator, address tokenAddress, address bondingCurveAddress, string name, string symbol)"
           ];
-          const factoryContract = new ethers.Contract(factoryAddr, factoryAbi, signer);
+          const factoryContract = new ethers.Contract(CONFIG.TOKEN_FACTORY_ADDRESS, factoryAbi, signer);
 
-          // The creationFee = 0.002 BERA => 0.002 * 1e18 = 2000000000000000 wei
-          const creationFee = ethers.parseEther("0.002");
+          // The creationFee from config
+          const creationFee = ethers.parseEther(CONFIG.CREATION_FEE);
+          console.info(`💰 Creation fee: ${CONFIG.CREATION_FEE} BERA`);
 
-          // Call createToken
+          // Call createToken with configured values
+          console.info('📝 Sending transaction to create token...');
           const tx = await factoryContract.createToken(
             name,
             symbol,
-            initialSupply,   // for example, 1000000
-            priceFeed,
+            CONFIG.INITIAL_SUPPLY,
+            CONFIG.PRICE_FEED_ADDRESS,
             { value: creationFee }
           );
+          console.info(`📨 Transaction sent! Hash: ${tx.hash}`);
           alert("Transaction sent! Hash: " + tx.hash);
 
+          console.info('⏳ Waiting for transaction confirmation...');
           const receipt = await tx.wait();
+          console.info(`✅ Transaction confirmed in block ${receipt.blockNumber}`);
           
           // Parse the TokenCreated event
           const event = receipt.logs
@@ -266,18 +262,29 @@
             .find(event => event && event.name === 'TokenCreated');
 
           if (event) {
-            alert(
+            const successMessage = 
               "Token created successfully!\n\n" +
               `Token Address: ${event.args.tokenAddress}\n` +
               `Bonding Curve Address: ${event.args.bondingCurveAddress}\n\n` +
-              `Confirmed in block ${receipt.blockNumber}`
-            );
+              `Confirmed in block ${receipt.blockNumber}`;
+            
+            console.info('\n' + '='.repeat(50));
+            console.info('🎉 TOKEN DEPLOYMENT SUCCESS');
+            console.info('='.repeat(50));
+            console.info(successMessage);
+            console.info('='.repeat(50));
+            alert(successMessage);
           } else {
+            console.warn('⚠️ Token created but event not found');
+            console.info(`✅ Confirmed in block ${receipt.blockNumber}`);
             alert("Token created! Confirmed in block " + receipt.blockNumber);
           }
 
         } catch(err) {
+          console.error('❌ TOKEN DEPLOYMENT FAILED');
+          console.error('='.repeat(50));
           console.error(err);
+          console.error('='.repeat(50));
           alert("Error: " + (err.message || err));
         }
       };
