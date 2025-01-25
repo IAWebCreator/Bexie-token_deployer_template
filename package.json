@@ -3,19 +3,21 @@
     "version": "1.0.0",
     "description": "Minimal Hardhat project for BexLiquidity + TokenFactory + Frontend Integration",
     "scripts": {
-      "compile": "hardhat compile",
-      "deploy": "hardhat run scripts/deploy.js --network berachain",
-      "test": "hardhat test"
+        "compile": "hardhat compile",
+        "deploy": "hardhat run scripts/deploy.js --network berachain",
+        "test": "hardhat test",
+        "start": "node server.js"
     },
     "devDependencies": {
-      "@nomicfoundation/hardhat-toolbox": "^4.0.0",
-      "@openzeppelin/contracts": "^5.1.0",
-      "chai": "^4.3.10",
-      "dotenv": "^16.4.5",
-      "ethers": "^6.11.1",
-      "hardhat": "^2.22.15"
+        "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+        "@openzeppelin/contracts": "^5.1.0",
+        "chai": "^4.3.10",
+        "dotenv": "^16.4.5",
+        "ethers": "^6.11.1",
+        "hardhat": "^2.22.15"
     },
     "dependencies": {
-      "@chainlink/contracts": "^1.3.0"
+        "@chainlink/contracts": "^1.3.0",
+        "express": "^4.21.2"
     }
-  }  
+}
