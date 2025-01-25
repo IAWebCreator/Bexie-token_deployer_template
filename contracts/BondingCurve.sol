@@ -68,18 +68,14 @@ contract BondingCurve is Ownable, ReentrancyGuard {
 
         totalSupplyTokens = TOTAL_TOKENS;
         updateBeraPrice();
-
-        // Set an initial price ( ~ $0.000007 ) if BERA is $3000
-        // (7 * beraPrice) / (3000 * 1e18) 
     }
 
     function updateBeraPrice() public {
         if (block.timestamp >= lastUpdateTime + UPDATE_INTERVAL) {
             (, int256 price,,,) = priceFeed.latestRoundData();
             require(price > 0, "Invalid BERA price");
-            // convert aggregator price to 18 decimals if aggregator has 8 decimals
-            // e.g. price = 300000000000 => 3000.00000000
-            lastBeraPrice = uint256(price) * 1e10; 
+            // Convert aggregator price to 18 decimals (e.g. if aggregator has 8 decimals)
+            lastBeraPrice = uint256(price) * 1e10;
             lastUpdateTime = block.timestamp;
         }
     }
@@ -95,17 +91,18 @@ contract BondingCurve is Ownable, ReentrancyGuard {
 
     function getCurrentPrice() public view returns (uint256) {
         uint256 beraPrice = getBeraPrice();
+
+        // Calculate the initial price if nothing has been sold yet
+        uint256 initPrice = (INITIAL_PRICE_MULTIPLIER * beraPrice) / (3000 * 1e18);
+
         if (totalSupplyTokens == TOTAL_TOKENS) {
-            // minimal token price if none sold
-            uint256 initPrice = (INITIAL_PRICE_MULTIPLIER * beraPrice) / (3000 * 1e18);
+            // If no tokens are sold, just return the initial price
             return initPrice;
         }
 
         uint256 sold = TOTAL_TOKENS - totalSupplyTokens;
-        uint256 initPrice = (INITIAL_PRICE_MULTIPLIER * beraPrice) / (3000 * 1e18);
         uint256 finalPrice = (FINAL_PRICE_MULTIPLIER * beraPrice) / (3000 * 1e18);
         uint256 priceDiff = finalPrice - initPrice;
-        // linear scale from init->final
         return initPrice + (priceDiff * sold) / TOKEN_SOLD_THRESHOLD;
     }
 
@@ -116,13 +113,13 @@ contract BondingCurve is Ownable, ReentrancyGuard {
 
         uint256 usdValue = (msg.value * getBeraPrice()) / 1e18;
         uint256 price = getCurrentPrice();
+
         // tokens = (usdValue * PRICE_DECIMALS) / price
         uint256 tokensToMint = (usdValue * PRICE_DECIMALS) / price;
-
         require(tokensToMint >= minTokens, "Slippage: Not enough tokens");
         require(tokensToMint <= totalSupplyTokens, "Not enough tokens in supply");
 
-        // Fee
+        // Collect fee
         uint256 fee = (msg.value * FEE_PERCENT) / 100;
         (bool feeSent,) = feeCollector.call{value: fee}("");
         require(feeSent, "Fee transfer failed");
@@ -134,7 +131,8 @@ contract BondingCurve is Ownable, ReentrancyGuard {
 
         // Check if we can deploy liquidity
         bool reachedCap = collectedBeraUSD >= (BERA_RAISED_THRESHOLD * getBeraPrice()) / 1e18
-                          && (TOTAL_TOKENS - totalSupplyTokens) >= TOKEN_SOLD_THRESHOLD;
+            && (TOTAL_TOKENS - totalSupplyTokens) >= TOKEN_SOLD_THRESHOLD;
+
         if (!liquidityDeployed && reachedCap) {
             _deployLiquidity();
         }
@@ -156,11 +154,11 @@ contract BondingCurve is Ownable, ReentrancyGuard {
         uint256 beraAmount = getSellPrice(tokenAmount);
         require(beraAmount <= address(this).balance, "Insufficient BERA in contract");
 
-        // Burn tokens from user
+        // Burn tokens from the user
         token.burn(msg.sender, tokenAmount);
         totalSupplyTokens += tokenAmount;
 
-        // Fee
+        // Collect fee
         uint256 fee = (beraAmount * FEE_PERCENT) / 100;
         uint256 netAmount = beraAmount - fee;
         (bool feeSent,) = feeCollector.call{value: fee}("");
@@ -193,7 +191,7 @@ contract BondingCurve is Ownable, ReentrancyGuard {
             liquidityCollector
         );
 
-        // The leftover 1 BERA is presumably for something else:
+        // The leftover 1 BERA is for fees or overhead
         (bool leftoverSent,) = feeCollector.call{value: 1 ether}("");
         require(leftoverSent, "Leftover BERA not sent");
 
